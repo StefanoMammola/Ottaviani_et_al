@@ -184,8 +184,8 @@ label_p2 <- paste("LM: beta=",
 
 db_year2 <- data.frame(PY     = rep(db_year$PY,2),
                       SUM_AB = c(db_year$SUM_AB_NOVEL, db_year$SUM_AB_CONFIRM),
-                      TYPE   =   c(rep("Novelty-related",nrow(db_year)),
-                                   rep("Confirmatory-related",nrow(db_year))))
+                      TYPE   =   c(rep("Novelty",nrow(db_year)),
+                                   rep("Confirmatory  ",nrow(db_year)))) #space for the legend
 
 (plot <- ggplot(db_year2, aes(x = PY, y = SUM_AB, colour=TYPE, fill=TYPE)) + 
         labs(title = NULL, x = NULL, 
