@@ -46,7 +46,9 @@ word.cleaner <- function(word.list, remove.punctuation = FALSE, split = FALSE, s
 # Function to check whole numbers
 is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
 
-# Custom theme for ggplot2
+
+# Custom theme for ggplot2 ---------------------------------------------
+
 theme_ggplot <- theme(
   legend.position = "bottom",
   axis.title = element_text(size = 12),
@@ -71,6 +73,7 @@ str(db)
 ## Variables explanation:
 
 #db$JI #<----- Journal
+#db$SO #<----- Journal (extended)
 #db$AB #<----- Abstract
 #db$TC #<----- Number of citations
 #db$PY #<----- Publication year 
@@ -82,7 +85,6 @@ str(db)
 db$JI <- as.factor(db$JI)
 
 #Subselecting only research articles (i.e. removing review, editorial)
-
 db <- db[db$DT %in% c("Article","Letter","Article; Proceedings Paper"),]
 
 #Removing wrong years and articles with no abstract
@@ -92,7 +94,6 @@ db <- db[!is.na(db$AB), ]
 nrow(db)
 
 # Cleaning abstract and titles --------------------------------------------
-
 Abstract_clean <- lapply(1:length(db$AB), function(x) word.cleaner(db$AB[x], remove.punctuation = TRUE, split = TRUE, split.sep=" "))
 Title_clean    <- lapply(1:length(db$TI), function(x) word.cleaner(db$TI[x], remove.punctuation = TRUE, split = TRUE, split.sep=" "))
 
@@ -115,7 +116,7 @@ n_title            <- c()
 novelty_title      <- c()
 confirmatory_title <- c()
 
-#Run from here (takes approxmately 2 minutes):
+#Run from here (takes approximately 2 minutes):
 for (i in 1:sample_size){
   
   #Analysing abstract i ---
@@ -137,14 +138,7 @@ for (i in 1:sample_size){
   #calculating the number of novelty words in abstract and title
   novelty_title       <- append(novelty_title, sum(ifelse(title_i %in% novelty == T,1,0))) 
   confirmatory_title  <- append(confirmatory_title, sum(ifelse(title_i %in% confirmatory == T,1,0))) 
-  
-  # #listing the words used
-  # word_abstract <- c(abstract_i[abstract_i %in% novelty == TRUE], abstract_i[abstract_i %in% confirmatory == TRUE])
-  # 
-  # year_abstract <- append(year_abstract, rep(db$PY[i],length(word_abstract)))
-  # 
-  # used_word_abstract <- append(used_word_abstract,word_abstract)
-  
+
   # Checking the advancing 
   if(is.wholenumber(i/1000) == TRUE)
     message(paste("Analyzed", as.character(i), "papers out of", as.character(sample_size),sep=" "))
@@ -170,32 +164,25 @@ hist(db$novelty_abstract_ratio, breaks = 30, main = "abstract (novelty)")
 hist(db$confirmatory_abstract_ratio, breaks = 30, main = "abstract (confirm.)")
 
 par(mfrow = c(2,1))
-hist(db$novelty_title_ratio, breaks = 30, main = "title (novelty)") #we cannot really use the title
-hist(db$confirmatory_title_ratio, breaks = 30, main = "title (confirm.)") #we cannot really use the title
+hist(db$novelty_title_ratio, breaks = 30, main = "title (novelty)") #we cannot really use the title - too zero inflated
+hist(db$confirmatory_title_ratio, breaks = 30, main = "title (confirm.)") #we cannot really use the title - too zero inflated
 
-# Is there an effect of using the two types of term on citations and impact factor?
+# Is there a temporal trend? ------------------------------------------------
 db$Novelty_AB_f      <- as.factor(ifelse(db$novelty_abstract>0,1,0))
 db$Confirmatory_AB_f <- as.factor(ifelse(db$confirmatory_abstract>0,1,0))
 
-# Looking at trends -------------------------------------------------------
+M1 <- glm(Novelty_AB_f ~ PY, data = db, family = "binomial")
+(pM1 <- parameters::model_parameters(M1))
 
-#Preparting the data
+M2 <- glm(Confirmatory_AB_f ~ PY, data = db, family = "binomial")
+(pM2 <- parameters::model_parameters(M2))
+
+# Generating temporal trend plots ----------------------------------------------------
+
+#Preparing the data
 db_year <- db %>% group_by(PY) %>% 
   summarise(SUM_AB_NOVEL = (sum(ifelse(novelty_abstract>0,1,0))/length(PY) )* 100,
             SUM_AB_CONFIRM = (sum(ifelse(confirmatory_abstract>0,1,0))/length(PY) ) * 100)
-
-# Is there a temporal trend?
-
-M1 <- glm(Novelty_AB_f ~ PY, data = db, family = "binomial")
-summary(M1)
-(pM1 <- parameters::model_parameters(M1))
-
-
-M2 <- glm(Confirmatory_AB_f ~ PY, data = db, family = "binomial")
-summary(M2)
-(pM2 <- parameters::model_parameters(M2))
-
-# Generating the plots ----------------------------------------------------
 
 db_year2 <- data.frame(PY     = rep(db_year$PY,2),
                       SUM_AB = c(db_year$SUM_AB_NOVEL, db_year$SUM_AB_CONFIRM),
@@ -219,8 +206,6 @@ db_year2 <- data.frame(PY     = rep(db_year$PY,2),
 
 ggsave("Figures/FIGURE_1.pdf", plot)
 
-
-# Plotting the pattern by journal
 db_year3 <- db %>% group_by(PY, SO) %>% 
   summarise(SUM_AB_NOVEL = (sum(ifelse(novelty_abstract>0,1,0))/length(PY) )* 100,
             SUM_AB_CONFIRM = (sum(ifelse(confirmatory_abstract>0,1,0))/length(PY) ) * 100)
@@ -238,7 +223,6 @@ levels(db_year3$SO)[1] <- "ACTA OECOLOGICA"
 #Does the journal mention Novelty in the author guidelines?
 journal_info <- data.frame(SO = levels(db_year3$SO), Novelty_in_description = c("No","Yes","Yes","Yes","Yes","Yes","Yes",
                                                                                 "No","No","No","Yes","Yes","No","Yes","No","Yes","Yes"))
-
 db_year3 <- db_year3 %>% dplyr::left_join(journal_info, by = "SO")
 
 (plot2 <- ggplot(db_year3, aes(x = PY, y = SUM_AB, colour=TYPE, fill=TYPE, pch = Novelty_in_description)) + 
@@ -258,12 +242,9 @@ db_year3 <- db_year3 %>% dplyr::left_join(journal_info, by = "SO")
 
 ggsave("Figures/FIGURE_2.pdf", plot2)
 
-# Further analyses --------------------------------------------------------
-
-#Normalizing citations by article age using a GAM
-
-# Approach as in:
-# Mammola, S., Fontaneto, D., Martínez, A., & Chichorro, F. (2021). Impact of the reference list features on the number of citations. Scientometrics, 126(1), 785-799.
+#############################################################################
+# Testing the relationship between word use and citations and impact factor #
+#############################################################################
 
 #Calculating article age
 db$Article_age <- 2017 - db$PY
@@ -317,8 +298,10 @@ db <- merge(x = db, y = IF_1997_2018, by = "JI_PY", all.x = TRUE, all.y = FALSE,
 
 rm(my_files,all_IF,my_IF,df,IF_1997_2018) #cleaning
 
-#Omitting NA in IF
+# Omitting NA in IF
 db_NA_omit <- db %>% drop_na(IF)
+
+# Modelling ---------------------------------------------------------------
 
 levels(db$Novelty_AB_f)      <- c("Not used","Used")
 levels(db$Confirmatory_AB_f) <- c("Not used","Used")
@@ -337,23 +320,26 @@ M2 <- lme4::lmer(TC ~ Novelty_AB_f + Confirmatory_AB_f + PY + n_abstract + (1|J9
 performance::check_model(M2)
 (M2.R2 <- performance::r2(M2))
 
-## Plotting
+
+# Visualizing the effect ---------------------------------------------------
+
+# Storing and organising model results
 table.M1 <- pM1 %>% dplyr::select(Parameter,
-                                     Beta = Coefficient,
-                                     SE,
-                                     CI_low,
-                                     CI_high,
-                                     p) %>% 
+                                  Beta = Coefficient,
+                                  SE,
+                                  CI_low,
+                                  CI_high,
+                                  p) %>% 
   data.frame() %>% 
   mutate_if(is.numeric, ~ round(.,3))
 
 table.M2 <- pM2 %>% dplyr::select(Parameter,
-                                     Effects,
-                                     Beta = Coefficient,
-                                     SE,
-                                     CI_low,
-                                     CI_high,
-                                     p) %>% 
+                                  Effects,
+                                  Beta = Coefficient,
+                                  SE,
+                                  CI_low,
+                                  CI_high,
+                                  p) %>% 
   data.frame() %>% 
   mutate_if(is.numeric, ~ round(.,3)) 
 
@@ -364,7 +350,7 @@ table.M2 <- table.M2[table.M2$Effects == "fixed",] %>%
 # What is the correlation between Scientific and societal interest estimates?
 table.M <- cbind(Model = c(rep("Impact Factor",nrow(table.M1)),
                            rep("Citations", nrow(table.M2))),
-                       rbind(table.M1,table.M2)) ; rm(table.M1,table.M2)
+                 rbind(table.M1,table.M2)) ; rm(table.M1,table.M2)
 
 table.M$Parameter <- as.factor(as.character(table.M$Parameter))
 table.M$Model     <- as.factor(as.character(table.M$Model))
@@ -375,14 +361,9 @@ levels(table.M$Parameter) <- c("Confirmatory terms used [yes]","Abstract length"
 
 table.M$Parameter <- factor(table.M$Parameter, rev(c("Novelty terms used [yes]","Confirmatory terms used [yes]","Abstract length", "Publication year"))) #Sort
 
-############################################################################
-############################################################################
-# Visualizing the effect ---------------------------------------------------
-############################################################################
-############################################################################
-
 sign.M1.2 <- ifelse(table.M$p > 0.05, "", ifelse(table.M$p > 0.01,"", " *")) #Significance
 
+# forest plot
 (plot3 <- 
     table.M %>%
     ggplot2::ggplot(aes(x = Beta, y = Parameter)) + 
@@ -412,4 +393,4 @@ sign.M1.2 <- ifelse(table.M$p > 0.05, "", ifelse(table.M$p > 0.01,"", " *")) #Si
     theme_classic())
     
 ggsave("Figures/FIGURE_3.pdf", plot3)    
-
+#End
