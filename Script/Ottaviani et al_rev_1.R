@@ -165,69 +165,35 @@ db <- data.frame(db,
                  n_title = n_title)
 
 #Checking the data
-par(mfrow = c(2,2))
+par(mfrow = c(2,1))
 hist(db$novelty_abstract_ratio, breaks = 30, main = "abstract (novelty)")
 hist(db$confirmatory_abstract_ratio, breaks = 30, main = "abstract (confirm.)")
+
+par(mfrow = c(2,1))
 hist(db$novelty_title_ratio, breaks = 30, main = "title (novelty)") #we cannot really use the title
 hist(db$confirmatory_title_ratio, breaks = 30, main = "title (confirm.)") #we cannot really use the title
 
 # Is there an effect of using the two types of term on citations and impact factor?
 db$Novelty_AB_f      <- as.factor(ifelse(db$novelty_abstract>0,1,0))
 db$Confirmatory_AB_f <- as.factor(ifelse(db$confirmatory_abstract>0,1,0))
-db$Novelty_TI_f      <- as.factor(ifelse(db$novelty_title>0,1,0))
-db$Confirmatory_TI_f <- as.factor(ifelse(db$confirmatory_title>0,1,0))
-
-# levels(db$Novelty_AB_f)      <- c("Not used","Used")
-# levels(db$Confirmatory_AB_f) <- c("Not used","Used")
-# 
-# levels(db$Novelty_TI_f)      <- c("Not used","Used")
-# levels(db$Confirmatory_TI_f) <- c("Not used","Used")
 
 # Looking at trends -------------------------------------------------------
 
 #Preparting the data
 db_year <- db %>% group_by(PY) %>% 
   summarise(SUM_AB_NOVEL = (sum(ifelse(novelty_abstract>0,1,0))/length(PY) )* 100,
-            SUM_AB_CONFIRM = (sum(ifelse(confirmatory_abstract>0,1,0))/length(PY) ) * 100,
-            SUM_TI_NOVEL = (sum(ifelse(novelty_title>0,1,0))/length(PY) )* 100,
-            SUM_TI_CONFIRM = (sum(ifelse(confirmatory_title>0,1,0))/length(PY) ) * 100 )
+            SUM_AB_CONFIRM = (sum(ifelse(confirmatory_abstract>0,1,0))/length(PY) ) * 100)
 
 # Is there a temporal trend?
 
 M1 <- glm(Novelty_AB_f ~ PY, data = db, family = "binomial")
+summary(M1)
 (pM1 <- parameters::model_parameters(M1))
+
 
 M2 <- glm(Confirmatory_AB_f ~ PY, data = db, family = "binomial")
+summary(M2)
 (pM2 <- parameters::model_parameters(M2))
-
-# Is there a temporal trend?
-M1 <- lm(SUM_AB_NOVEL ~ PY, data = db_year)
-(pM1 <- parameters::model_parameters(M1))
-
-M2 <- lm(SUM_AB_CONFIRM ~ PY, data = db_year)
-(pM2 <- parameters::model_parameters(M2))
-
-# Model summary for plot --------------------------------------------------
-
-label_p1 <- paste("LM: beta=",
-                  round(pM1$Coefficient[2],2),
-                  "; 95% CI=[",
-                  round(pM1$CI_low[2],2),
-                  ",",
-                  round(pM1$CI_high[2],2),
-                  "]; p",
-                  ifelse(pM1$p[2]<0.001,"<0.001",paste("=",round(pM1$p[2],3),sep='')), 
-                  sep=''   )
-
-label_p2 <- paste("LM: beta=",
-                  round(pM2$Coefficient[2],2),
-                  "; 95% CI=[",
-                  round(pM2$CI_low[2],2),
-                  ",",
-                  round(pM2$CI_high[2],2),
-                  "]; p",
-                  ifelse(pM2$p[2]<0.001,"<0.001",paste("=",round(pM2$p[2],3),sep='')), 
-                  sep=''   )
 
 # Generating the plots ----------------------------------------------------
 
@@ -239,18 +205,58 @@ db_year2 <- data.frame(PY     = rep(db_year$PY,2),
 (plot <- ggplot(db_year2, aes(x = PY, y = SUM_AB, colour=TYPE, fill=TYPE)) + 
         labs(title = NULL, x = NULL, 
        y = "% of papers")+
+       geom_line()+
        geom_smooth(method = "lm", formula = y ~ x, alpha =.5 )+
        geom_point(pch= 21, col = "grey10", size = 2.5) +
        ylim(0,22)+
        scale_color_manual("",values = c("midnightblue","mediumorchid4"))+
        scale_fill_manual("",values = c("midnightblue","mediumorchid4"))+
-       annotate("text", x = 2006, y = 20, label = label_p1, col= "mediumorchid4") +
-       annotate("text", x = 2006, y = 6, label = label_p2, col = "midnightblue") +
+       # annotate("text", x = 2006, y = 20, label = label_p1, col= "mediumorchid4") +
+       # annotate("text", x = 2006, y = 6, label = label_p2, col = "midnightblue") +
       scale_x_continuous(breaks = c(seq(from=1997,to=2017,by=3)), 
                             labels = c(seq(from=1997,to=2017,by=3))) + 
          theme_classic() + theme_ggplot)
 
 ggsave("Figures/FIGURE_1.pdf", plot)
+
+
+# Plotting the pattern by journal
+db_year3 <- db %>% group_by(PY, SO) %>% 
+  summarise(SUM_AB_NOVEL = (sum(ifelse(novelty_abstract>0,1,0))/length(PY) )* 100,
+            SUM_AB_CONFIRM = (sum(ifelse(confirmatory_abstract>0,1,0))/length(PY) ) * 100)
+
+db_year3 <- data.frame(PY     = rep(db_year3$PY,2),
+                       SO     = rep(db_year3$SO,2),
+                       SUM_AB = c(db_year3$SUM_AB_NOVEL, db_year3$SUM_AB_CONFIRM),
+                       TYPE   =   c(rep("Novel",nrow(db_year3)),
+                                    rep("Confirmatory  ",nrow(db_year3))))
+
+# Adding some journal info
+db_year3$SO <- as.factor(db_year3$SO)
+levels(db_year3$SO)[1] <- "ACTA OECOLOGICA"
+
+#Does the journal mention Novelty in the author guidelines?
+journal_info <- data.frame(SO = levels(db_year3$SO), Novelty_in_description = c("No","Yes","Yes","Yes","Yes","Yes","Yes",
+                                                                                "No","No","No","Yes","Yes","No","Yes","No","Yes","Yes"))
+
+db_year3 <- db_year3 %>% dplyr::left_join(journal_info, by = "SO")
+
+(plot2 <- ggplot(db_year3, aes(x = PY, y = SUM_AB, colour=TYPE, fill=TYPE, pch = Novelty_in_description)) + 
+    facet_wrap(~SO)+
+    geom_smooth(method = "lm", formula = y ~ x, alpha =.5 )+
+    labs(title = NULL, x = NULL, 
+         y = "% of papers")+
+    ylim(0,40)+
+    geom_line()+
+    geom_point(col = "grey10", size = 2) +
+    scale_color_manual("",values = c("midnightblue","mediumorchid4"))+
+    scale_fill_manual("",values = c("midnightblue","mediumorchid4"))+
+    scale_shape_manual("Novelty criteria\nin journal description",values = c(21,22))+
+    scale_x_continuous(breaks = c(seq(from=1997,to=2017,by=6)), 
+                       labels = c(seq(from=1997,to=2017,by=6))) + 
+    theme_classic() + theme_ggplot)
+
+ggsave("Figures/FIGURE_2.pdf", plot2)
 
 # Further analyses --------------------------------------------------------
 
@@ -269,15 +275,6 @@ db <- db[!is.na(db$Article_age), ]
 #Checking outliers
 boxplot(db$TC) # 3 outliers
 db <- db[db$TC<6000,]
-
-#fitting the gam
-M0 <- gam::gam(TC ~ s(Article_age,2), family = poisson, data = db) 
-summary(M0)
-
-par(mfrow=c(1,1)) ; plot(M0, se = FALSE)
-
-# Extracting the residual of citations
-db <- data.frame(db, Citation_residuals = resid(M0, type="pearson"))
 
 # Assigning Impact factor for each publication ----------------------------
 
@@ -323,20 +320,96 @@ rm(my_files,all_IF,my_IF,df,IF_1997_2018) #cleaning
 #Omitting NA in IF
 db_NA_omit <- db %>% drop_na(IF)
 
-# levels(db$Novelty_AB_f)      <- c("Not used","Used")
-# levels(db$Confirmatory_AB_f) <- c("Not used","Used")
+levels(db$Novelty_AB_f)      <- c("Not used","Used")
+levels(db$Confirmatory_AB_f) <- c("Not used","Used")
 
-
-M1 <- lme4::lmer(IF ~ Novelty_AB_f + Confirmatory_AB_f + PY + n_abstract + (1|J9), data = db, REML= FALSE)
+M1 <- lm(IF ~ Novelty_AB_f + Confirmatory_AB_f + PY + n_abstract, data = db)
 (pM1 <- parameters::model_parameters(M1))
 
-#Validaton plots
+#Validation plots
 performance::check_model(M1)
-performance::r2(M1)
+(M1.R2 <- performance::r2(M1))
 
 M2 <- lme4::lmer(TC ~ Novelty_AB_f + Confirmatory_AB_f + PY + n_abstract + (1|J9), data = db, REML= FALSE)
 (pM2 <- parameters::model_parameters(M2))
 
 #Validaton plots
 performance::check_model(M2)
-performance::r2(M2)
+(M2.R2 <- performance::r2(M2))
+
+## Plotting
+table.M1 <- pM1 %>% dplyr::select(Parameter,
+                                     Beta = Coefficient,
+                                     SE,
+                                     CI_low,
+                                     CI_high,
+                                     p) %>% 
+  data.frame() %>% 
+  mutate_if(is.numeric, ~ round(.,3))
+
+table.M2 <- pM2 %>% dplyr::select(Parameter,
+                                     Effects,
+                                     Beta = Coefficient,
+                                     SE,
+                                     CI_low,
+                                     CI_high,
+                                     p) %>% 
+  data.frame() %>% 
+  mutate_if(is.numeric, ~ round(.,3)) 
+
+table.M2 <- table.M2[table.M2$Effects == "fixed",] %>% 
+  dplyr::select(-c(Effects)) %>% 
+  na.omit()
+
+# What is the correlation between Scientific and societal interest estimates?
+table.M <- cbind(Model = c(rep("Impact Factor",nrow(table.M1)),
+                           rep("Citations", nrow(table.M2))),
+                       rbind(table.M1,table.M2)) ; rm(table.M1,table.M2)
+
+table.M$Parameter <- as.factor(as.character(table.M$Parameter))
+table.M$Model     <- as.factor(as.character(table.M$Model))
+
+table.M <- table.M[table.M$Parameter != "(Intercept)",] ; table.M = droplevels(table.M)
+
+levels(table.M$Parameter) <- c("Confirmatory terms used [yes]","Abstract length", "Novelty terms used [yes]","Publication year")
+
+table.M$Parameter <- factor(table.M$Parameter, rev(c("Novelty terms used [yes]","Confirmatory terms used [yes]","Abstract length", "Publication year"))) #Sort
+
+############################################################################
+############################################################################
+# Visualizing the effect ---------------------------------------------------
+############################################################################
+############################################################################
+
+sign.M1.2 <- ifelse(table.M$p > 0.05, "", ifelse(table.M$p > 0.01,"", " *")) #Significance
+
+(plot3 <- 
+    table.M %>%
+    ggplot2::ggplot(aes(x = Beta, y = Parameter)) + 
+    facet_wrap(. ~ Model, nrow = 1, ncol = 2, scales = "free") +  
+    geom_vline(lty = 3, size = 0.5, col = "grey50", xintercept = 0) +
+    geom_errorbar(aes(xmin = CI_low, xmax = CI_high), width = 0)+
+    geom_point(col = "grey10", fill = "grey20", size = 2, pch = 21) +
+    geom_text(label = paste0(round(table.M$Beta, 3), sign.M1.2, sep = "  "), 
+              vjust = - 1, size = 3) +
+    labs(x = expression(paste("Estimated beta" %+-% "95% Confidence interval")),
+         y = NULL) +
+    
+    geom_text(data = data.frame(x = -.01, y = 4.5, Model = "Impact Factor",
+                                label = paste0("R^2 ==",round(as.numeric(M1.R2[1]),2))),
+              aes(x = x, y = y, label = label),
+              size = 3, parse = TRUE) +
+    
+    geom_text(data = data.frame(x = -3, y = 4.5, Model = "Citations",
+                                label = paste0("Conditional_","R^2 ==",round(as.numeric(M2.R2[1]),2))),
+              aes(x = x, y = y, label = label),
+              size = 3, parse = TRUE) +
+    geom_text(data = data.frame(x = -3, y = 4.3, Model = "Citations",
+                                label = paste0(" ","Marginal_","R^2 ==",round(as.numeric(M2.R2[2]),2))),
+              aes(x = x, y = y, label = label),
+              size = 3, parse = TRUE) +
+
+    theme_classic())
+    
+ggsave("Figures/FIGURE_3.pdf", plot3)    
+
