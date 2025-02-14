@@ -8,7 +8,7 @@
 # 'R script to prepare the data
 ## ------------------------------------------------------------------------
 
-# Analysis performed with R (v. R 4.0.3) and R studio (v. 1.4.1103)
+# Analysis performed with R (v. R 4.3.0) and R studio (v. 2023.03.1+446)
 # Author: Stefano Mammola
 
 # Loading R packages ------------------------------------------------------
@@ -23,7 +23,7 @@ pacman::p_load("dplyr", # A Grammar of Data Manipulation
                "readxl", # Read Excel Files
                "tidyr") # Tidy Messy Data
 
-library("glmmTMB")
+citation("ggplot2")
 
 # Loading useful functions ------------------------------------------------
 
