@@ -178,6 +178,7 @@ M0 <- glmmTMB::glmmTMB(Novelty_AB_f ~ scale(PY) + (1 | J9), data = db, family = 
 performance::r2(M0)
 performance::check_model(M0)
 
+
 M0.1 <- glmmTMB::glmmTMB(Confirmatory_AB_f ~ scale(PY) + (1 | J9), data = db, family = "binomial"(link = "cloglog"))
 (pM0.1 <- parameters::model_parameters(M0.1))
 performance::r2(M0.1)
