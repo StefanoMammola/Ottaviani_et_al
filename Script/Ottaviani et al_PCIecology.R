@@ -23,8 +23,6 @@ pacman::p_load("dplyr", # A Grammar of Data Manipulation
                "readxl", # Read Excel Files
                "tidyr") # Tidy Messy Data
 
-citation("ggplot2")
-
 # Loading useful functions ------------------------------------------------
 
 # Function to clean string of words and abstracts 
@@ -48,17 +46,16 @@ word.cleaner <- function(word.list, remove.punctuation = FALSE, split = FALSE, s
 # Function to check whole numbers
 is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
 
-
 # Custom theme for ggplot2 ---------------------------------------------
 
 theme_ggplot <- theme(
   legend.position = "top",
-  axis.title = element_text(size = 14),
-  axis.text.x = element_text(size = 12),
-  axis.text.y = element_text(size = 12),
+  axis.title = element_text(size = 16),
+  axis.text.x = element_text(size = 14),
+  axis.text.y = element_text(size = 14),
   panel.grid = element_blank(),
-  plot.caption = element_text(size = 12, color = "gray50"),
-  plot.title = element_text(face="bold", size=12)
+  plot.caption = element_text(size = 14, color = "gray50"),
+  plot.title = element_text(face="bold", size=14)
 )
 
 # Loading the database ----------------------------------------------------
@@ -254,12 +251,10 @@ db_year2 <- db_year2 %>% dplyr::left_join(journal_info, by = "SO")
                        labels = c(seq(from=1997,to=2017,by=6))) + 
     theme_classic() + theme_ggplot + theme(legend.box = "horizontal",
                                            legend.position = c(1, 0),
-                                           legend.justification = c(1, 0)))
-
-
+                                           legend.justification = c(1, 0),
+                                           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)))
 
 ggsave("Figures/FIGURE_3.pdf", plot2)
-
 
 #############################################################################
 # Testing the relationship between word use and citations and impact factor #
@@ -320,7 +315,6 @@ levels(db$Confirmatory_AB_f) <- c("Not used","Used")
 
 M1 <- lm(IF ~ Novelty_AB_f + Confirmatory_AB_f + scale(PY) + scale(n_abstract), data = db)
 (pM1 <- parameters::model_parameters(M1))
-
 
 #Validation plots
 performance::check_model(M1)
